@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
 const validator = require('validator');
+const { v4 } = require('uuid');
 var mysql = require('mysql');
 var fs = require('fs');
 var https = require('https');
@@ -34,35 +35,63 @@ app.use(bodyParser.json())
 app.post("/authorization", (req, resHttp) => {
     console.log(req.body);
     const message = req.body;
-    const username = message.username;
-    const password = message.password;
-
     var response = {
         status: "unknown",
         reason: undefined,
+        token: undefined,
         data: {
             WOW: undefined,
             LED: undefined
 
         }
     }
-    connection.query("SELECT * FROM users where username = ? and password = ?", [username, password],
-        (err, res) => {
+    if (message.hasOwnProperty('token')) {
+        //user using token
+        const token = message.token;
+        connection.query("SELECT * FROM users where token = ?", [token], (err, res) => {
             if (err)
                 throw err;
             if (res.length != 0) {
-                //ada
                 response.status = "success";
                 response.data.WOW = res[0]["WOW"];
                 response.data.LED = res[0]["LED"];
                 resHttp.send(response);
             }
-            else{
+            else {
                 response.status = "failed";
                 response.reason = "no username or password";
                 resHttp.send(response);
             }
         })
+    }
+    else {
+        const username = message.username;
+        const password = message.password;
+        connection.query("SELECT * FROM users where username = ? and password = ?", [username, password],
+            (err, res) => {
+                if (err)
+                    throw err;
+                if (res.length != 0) {
+                    //ada
+                    response.status = "success";
+                    response.token = v4();
+                    response.data.WOW = res[0]["WOW"];
+                    response.data.LED = res[0]["LED"];
+                    connection.query("UPDATE users set token = ? where id = ?", [response.token, res[0]["id"]], (err, res) => {
+                        if (err)
+                            throw err;
+                        resHttp.send(response);
+                    })
+                }
+                else {
+                    response.status = "failed";
+                    response.reason = "no username or password";
+                    resHttp.send(response);
+                }
+            })
+    }
+
+
 })
 app.get("/", (req, res) => {
     res.send("Hello");
