@@ -9,8 +9,11 @@ var certificate = fs.readFileSync('/etc/letsencrypt/live/rust-sby.xyz/cert.pem',
 
 var credentials = { key: privateKey, cert: certificate };
 var express = require('express');
-var bodyParser = require('body-parser')
+var bodyParser = require('body-parser');
+const { ELOOP } = require('constants');
 var app = express();
+const wol = require('wol');
+
 
 // your express configuration here
 
@@ -93,6 +96,26 @@ app.post("/authorization", (req, resHttp) => {
 
 
 })
+app.post("/wake/:mac", (req, resHttp) => {
+    console.log(`waking up ${req.params.mac}`)
+    if (validator.isMACAddress(req.params.mac)) {
+        wol.wake(req.params.mac, function (err, res) {
+            console.log(res);
+        });
+        resHttp.send({ status: "success" });
+    }
+    else {
+        resHttp.send({
+            status: "error",
+            reason: "MAC Address is not valid"
+        });
+    }
+    // wol.wake(req.params.mac, function (err, res) {
+    //     if (err)
+    //         throw err;
+    //     console.log(res);
+    // });
+})
 app.get("/", (req, res) => {
     res.send("Hello");
 })
@@ -112,12 +135,17 @@ var dbConfig = {
 
 var connection;
 function handleDisconnect() {
+    console.log("connecting to DB");
     connection = mysql.createConnection(dbConfig);  // Recreate the connection, since the old one cannot be reused.
     connection.connect(function onConnect(err) {   // The server is either down
         if (err) {                                  // or restarting (takes a while sometimes).
             console.log('error when connecting to db:', err);
             setTimeout(handleDisconnect, 10000);    // We introduce a delay before attempting to reconnect,
-        }                                           // to avoid a hot loop, and to allow our node script to
+        }
+        else {
+
+            console.log("success reconnect to DB");                 // to avoid a hot loop, and to allow our node script to
+        }
     });                                             // process asynchronous requests in the meantime.
     // If you're also serving http, display a 503 error.
     connection.on('error', function onError(err) {

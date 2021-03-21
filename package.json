@@ -16,5 +16,8 @@
     "uuid": "^8.3.2",
     "validator": "^13.5.2",
     "ws": "^7.4.4"
+  },
+  "devDependencies": {
+    "wol": "^1.0.7"
   }
 }
